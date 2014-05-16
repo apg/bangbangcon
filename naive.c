@@ -67,7 +67,7 @@ vm_gc(VM_t *v)
 
   collected = count - v->count;
 
-  printf("guage#naive.before=%d, guage#naive.collected=%d\n", count, collected);
+  printf("guage#naive.before=%d, guage#naive.collected=%d, gauge#naive.after=%d\n", count, collected, v->count);
 
   /* TODO: ellapsed time should be captured for each mark
      and sweep phase */

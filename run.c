@@ -5,6 +5,7 @@
 int
 main(int argc, char **argv)
 {
+  int i;
   VM_t vm, *v;
   v = &vm;
 
@@ -23,6 +24,10 @@ main(int argc, char **argv)
   vm_cons(v);
   vm_print(v);
   vm_nl(v);
+
+  for (i = 0; i < 20; i++) {
+    vm_num(v, i);
+  }
 
   return 0;
 }

@@ -20,6 +20,20 @@ dieif(int condition, const char *format, ...)
   }
 }
 
+static object_t *
+alloc(VM_t *vm)
+{
+  object_t *new;
+  if (vm->count > vm->threshold) {
+    vm_gc(vm);
+    vm->threshold = vm->count * 2;
+  }
+
+  new = malloc(sizeof(*new));
+  dieif(!new, "alloc: failed\n");
+  return new;
+}
+
 void
 vm_init(VM_t *vm)
 {
@@ -55,7 +69,8 @@ vm_cons(VM_t *vm)
 {
   object_t *new;
   dieif(vm->pt < 2, "cons: not enough rands\n");
-  new = malloc(sizeof(*new));
+
+  new = alloc(vm);
   new->hist = vm->current;
   new->flags = MKFLAGS(CONS_T, 0);
   new->head = vm_pop(vm);
@@ -74,7 +89,7 @@ vm_num(VM_t *vm, double num)
 {
   object_t *new;
 
-  new = malloc(sizeof(*new));
+  new = alloc(vm);
   new->hist = vm->current;
   new->flags = MKFLAGS(NUM_T, 0);
   new->number = num;
