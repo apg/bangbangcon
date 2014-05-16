@@ -33,7 +33,7 @@ struct object {
     struct {
       object_t *head;
       object_t *tail;
-    }
+    };
   };
   int flags;
 };
@@ -49,7 +49,7 @@ object_t *vm_div(VM_t *v);
 object_t *vm_mod(VM_t *v);
 object_t *vm_head(VM_t *v);
 object_t *vm_tail(VM_t *v);
-object_t *vm_null(VM_t *v);
+void vm_null(VM_t *v);
 void vm_dup(VM_t *v);
 void vm_nl(VM_t *v);
 void vm_print(VM_t *v);
