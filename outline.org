@@ -1,0 +1,83 @@
+#+Title: Understanding Garbage Collection, through Visualizing a One Pass Real-Time Generational Mark-Sweep Garbage Collector!
+
+* Timeline for your talk  [How will you use your 10 minutes. : ]
+
+~1 minute:  Discuss the principle motivations for Garbage Collection.
+~2 minutes: Discuss the basic Mark-Sweep collector
+   - Example run through.
+   - Mark with Pointer Reversal
+   - Disadvantages
+~4 minutes: Describe the One-Pass algorithm, and the properties that
+make it interesting
+   - Generational: "Weak-Generational Hypothesis"
+   - Real-Time: "Forget GC Pauses"
+   - Immutability: Break everyone's hearts by telling them that it's
+     Unobtanium for most languages due to the immutability aspect of
+     it.
+~3 minutes: Visualizing the heap over time
+   - Two types of visualizations
+     1. free vs. uses blocks
+     2. timeseries "bytes-free"
+   - Both Mark-Sweep and the Virding algorithm
+   - Compare and Contrast
+
+
+* Garbage Collection
+** Slide: Picture of Mallocs
+You know what these are? These are mallocs, and they should be freed.
+
+** Slide: Manual Memory Management is difficult.
+
+Most of us probably don't think about memory management. We use a
+programming language like Ruby, or Python, or Java, which simply 
+does it for us.
+
+And, there's a reason for this. Memory management is hard. It's error
+prone--just look at Firefox, and It affects the entire architecture of
+your program. But, in most cases, I don't care. I want results
+as *fast* as possible, with the least amount of fuss. Luckily, smart
+people do research on programs called Garbage collectors.
+
+When we talk about Garbage Collection, we're talking about a program
+that manages memory for us. That program often comes under a lot of
+scrutiny for being slow, and like most things in life, it's a tradeoff.
+
+
+** Slide: Naive Mark-Sweep
+
+If we think about how to manually manage memory, it's very simple. We
+acquire some space, put data in it, utilize it somehow, and when we're
+done with it, we release it. This is very similar to how we do locking.
+
+Acquire. Process. Release.
+
+We're good at acquiring and processing, but it turns out we're pretty
+bad at remembering to release, which leads to either memory leaks, or
+deadlocks.
+
+** Slide: Mark sweep algorithm 1. Roots management, marking
+[Diagram: Code on left. Machine diagram with mark bits on right]
+
+That's where our new friend mark-sweep comes in. It looks at all of
+the references you're currently using, the *roots*, follows all of
+their pointers, and *marks* each item, recursively. That recursive
+bit is actually problematic as well -- ask me later.
+
+** Slide: Mark sweep algorithm 2. Sweeping.
+
+Then, in a separate phase, it *sweeps* through the entire memory
+region and reclaims the things that aren't marked. 
+
+** Slide: Performance 
+
+But there's a big issue with this. What happens if you're using a lot
+of memory? That sweep through all of memory is going to get expensive.
+This leads to pauses in the execution of your program, and you're
+gonna be sad about this.
+
+** Slide: A One-Pass, Real-Time Generational Mark-Sweep Collector
+
+Why is Mark-Sweep so slow? Well, for one, you're going through the heap
+twice. Once to mark things, the other to sweep. 
+
+....
