@@ -1,6 +1,6 @@
 CFLAGS = -Wall -g
 
-all: naive
+all: naive onepass
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $^

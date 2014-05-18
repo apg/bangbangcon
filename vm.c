@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -34,10 +35,24 @@ alloc(VM_t *vm)
   return new;
 }
 
+long
+nanotime()
+{
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_BOOTTIME, &ts) < 0) {
+    perror("nanotime");
+    exit(1);
+  }
+  
+  return (ts.tv_sec * 1000000000L) + ts.tv_nsec;
+}
+
 void
 vm_init(VM_t *vm)
 {
   vm->current = NULL;
+  vm->first = NULL;
   vm->pt = 0;
   vm->count = 0;
   vm->threshold = 8;
@@ -73,8 +88,12 @@ vm_cons(VM_t *vm)
   new = alloc(vm);
   new->hist = vm->current;
   new->flags = MKFLAGS(CONS_T, 0);
-  new->head = vm_pop(vm);
   new->tail = vm_pop(vm);
+  new->head = vm_pop(vm);
+
+  if (vm->first == NULL) {
+    vm->first = new;
+  }
 
   vm->count++;
   vm->current = new;

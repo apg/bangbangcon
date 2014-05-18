@@ -22,6 +22,7 @@ mark_roots(VM_t *v)
 {
   int i;
   for (i = 0; i < v->pt; i++) {
+    if (v->stack[i] == NULL) continue;
     mark(v, v->stack[i]);
   }
 }
@@ -62,13 +63,15 @@ vm_gc(VM_t *v)
   int count = v->count;
   int collected;
 
+  long nstart = nanotime();
+
   mark_roots(v);
   sweep(v);
 
   collected = count - v->count;
 
-  printf("guage#naive.before=%d, guage#naive.collected=%d, gauge#naive.after=%d\n", count, collected, v->count);
-
-  /* TODO: ellapsed time should be captured for each mark
-     and sweep phase */
+  printf("guage#naive.threshold=%d "
+         "guage#naive.before=%d guage#naive.collected=%d "
+         "gauge#naive.after=%d timer#naive.ellapsed=%ldns\n", 
+         v->threshold, count, collected, v->count, nanotime() - nstart);
 }

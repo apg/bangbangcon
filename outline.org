@@ -23,7 +23,16 @@ make it interesting
 
 
 * Garbage Collection
-** Slide: Picture of Mallocs
+
+* Slide: 
+
+Understanding Garbage Collection, through Visualizing a One Pass Real-Time Generational Mark Sweep Garbage Collection
+
+   Andrew Gwozdziewycz (Guh-shev-itz)
+   http://apgwoz.com
+   !!Con, May 18, 2014
+
+** Slide: Picture of Mallocs (whatever mallocs are)
 You know what these are? These are mallocs, and they should be freed.
 
 ** Slide: Manual Memory Management is difficult.
@@ -33,51 +42,206 @@ programming language like Ruby, or Python, or Java, which simply
 does it for us.
 
 And, there's a reason for this. Memory management is hard. It's error
-prone--just look at Firefox, and It affects the entire architecture of
-your program. But, in most cases, I don't care. I want results
+prone--just look at Firefox, and infects the entire architecture of
+your program. But, in most cases, we don't care. We want results
 as *fast* as possible, with the least amount of fuss. Luckily, smart
 people do research on programs called Garbage collectors.
 
 When we talk about Garbage Collection, we're talking about a program
-that manages memory for us. That program often comes under a lot of
-scrutiny for being slow, and like most things in life, it's a tradeoff.
-
+that helps manages memory for us. That program often comes under a lot
+of scrutiny for being slow, and like most things in life, there are
+many tradeoffs.
 
 ** Slide: Naive Mark-Sweep
 
 If we think about how to manually manage memory, it's very simple. We
 acquire some space, put data in it, utilize it somehow, and when we're
-done with it, we release it. This is very similar to how we do locking.
+done with it, we release it. This is very similar to how we do locking
+in multithreaded code.
 
-Acquire. Process. Release.
+** Slide: Acquire. Process. Release.
 
-We're good at acquiring and processing, but it turns out we're pretty
-bad at remembering to release, which leads to either memory leaks, or
-deadlocks.
+And, we're good at acquiring and processing, but it turns out we're
+pretty bad at remembering to release, or releasing in the correct
+spot, which leads to either memory leaks, segfaults (or deadlocks
+when we don't release a lock).
 
 ** Slide: Mark sweep algorithm 1. Roots management, marking
-[Diagram: Code on left. Machine diagram with mark bits on right]
 
-That's where our new friend mark-sweep comes in. It looks at all of
-the references you're currently using, the *roots*, follows all of
-their pointers, and *marks* each item, recursively. That recursive
-bit is actually problematic as well -- ask me later.
+[Diagram: Code on right. Memory diagram with mark bits on right]
+
+That's where our friend mark-sweep comes in. It looks at all of the
+references you're currently using, the *roots*--references on the
+stack, or in registers, follows all of their pointers, and *marks*
+each item, recursively. 
 
 ** Slide: Mark sweep algorithm 2. Sweeping.
 
 Then, in a separate phase, it *sweeps* through the entire memory
-region and reclaims the things that aren't marked. 
+region and reclaims the things that aren't marked, freeing them,
+making them available for us to reuse. Essentially, the mark phase
+finds all the things that are in use. The sweep phase cleans it up.
 
-** Slide: Performance 
+** Slide: "I saw this wino, he was eating grapes. I was like, 'Dude, you have to wait.'"
 
-But there's a big issue with this. What happens if you're using a lot
-of memory? That sweep through all of memory is going to get expensive.
-This leads to pauses in the execution of your program, and you're
-gonna be sad about this.
+Mark-sweep "Stops the world" while running. If you're using a lot of
+memory, and a lot of objects are still reachable, both the mark phase
+and the sweep phase are going to take a lot of time. Stopping the 
+world means that your program isn't running while this is happening.
+It has to wait.
+
+** Slide: [Timeseries plot of full-mark sweep, with second timeseries with collection time]
+
+** Slide: How can we make this better?
+
+We can make this better by using a more sophisticated algorithm, but
+that adds a lot of complexity. Complexity isn't always bad, but we
+only have 10 minutes...
+
+** Slide: Idea: Combine the mark and sweep phase. (One-pass)
+
+In the worst case with a naive mark-sweep, everything gets marked
+because it is still in use. But, naive mark sweep then has to do a
+full sweep of the heap, and if everything is marked, it collects
+nothing.
+
+If we can combine the marking and sweep phase, we *at least* walk
+the heap 1 time instead of 2.
+
+** Slide: Idea: Shorter pauses by doing less work more often. (Incremental)
+
+If we can modify the algorithm to safely *stop* mid collection, we can
+reduce our effective pause time at each collection, and *resume* at a
+later time to complete the entire process. We have to be careful that
+the rate of allocation doesn't exceed the rate we make garbage,
+otherwise our heap has to grow. While heap growth is fine, we may end
+up with a lot of mapped memory that's not in use.
+
+** Slide: Idea: Shorter pauses by doing less work more often. (Real-time)
+
+And, if we can *stop* mid collection, we can create some guarantees that say
+we'll pause at most for N nanoseconds at a time, which may make the collector
+tolerable in a soft real-time system.
+
+** Slide: Idea: "Most objects die young." Separate the heap into old and new. (Generational)
+
+David Ungar's weak generational hypothesis states: "Most objects die
+young." Empirically, this has been shown to be true, which means it probably
+makes sense to collect newer objects more often.
+
+** Slide: Yes We Can
+
+All of these ideas are real, and exist in an a GC near you. But, they
+are notoriously difficult to build and even harder to debug. If you're
+building a toy, it's not worth the hassle. If you're building a real
+language used by lots of people, well, the investment is totally worth
+it (and maybe someone else will do it for you!)
 
 ** Slide: A One-Pass, Real-Time Generational Mark-Sweep Collector
 
-Why is Mark-Sweep so slow? Well, for one, you're going through the heap
-twice. Once to mark things, the other to sweep. 
+But, does that have to be so? Surely we can achieve at least some of 
+these ideas without a lot of work. We can, though, there are some
+constraints.
 
-....
+** Slide: [Heap diagram]
+
+Here we have a heap. We always allocate memory on the "high" end, and
+we always have pointers point towards the "low" end of the heap. If we
+do this, we can find all garbage using the following algorithm:
+
+    def markall():
+      this = most_recent_alloc
+      while this > minimum_heap_address:
+        if marked(this):
+          mark_pointers(this)
+        this -= 1
+
+But, we *can't* reclaim the space, because we'd break the invariant
+that pointers always point towards low addresses. We're left with
+holes that we can't use.
+
+** Slide: [History List Diagram]
+
+We can simulate that heap organization by simply linking all
+allocations via a history pointer. Each allocation points to the
+previous allocation. 
+
+    def alloc():
+      obj = new()
+      obj.previous = most_recent_alloc
+      most_recent_alloc = obj
+      return obj
+
+When we get a new object, we have to do some bookkeeping. Keep track
+of the previous allocation and the globally, the most recent.
+
+** Slide: Algorithm
+
+Then our algorithm looks like this:
+
+    def gc():
+      last_alloc = most_recent_alloc
+      SCAV = last_alloc->prev_alloc
+      while this != first_alloc:
+        if marked(SCAV):
+           mark_pointers(SCAV)
+           unmark(SCAV)
+           last_alloc = SCAV
+           SCAV = last_alloc.previous
+        else:
+           tmp = SCAV
+           SCAV = SCAV.previous
+           last_alloc.previous = SCAV
+           free(tmp)
+
+** Slide: [Time-series plot of One-Pass]
+
+** Slide: But wait!!
+[Image: But wait there's more!]
+
+** Slide: This is incremental!
+
+We can stop whenever we want and start back up again. No pointers can
+ever point to something allocated after it, which means that marking
+something old can *never* result in garbage stemming from *new*
+allocations.
+
+** Slide: This is generational!
+
+Each time we free something that is garbage, we effectively move non-garbage
+closer to the beginning of the history list, which is isomorphic to the
+low end of the heap from before. Why is that good? It means that *older*
+objects that survive can be collected less frequently simply by only 
+collecting *part* of the history list from the beginning.
+
+** Slide: But is this practical?
+
+In the 90s this algorithm was used in Erlang. The semantics of Erlang
+make this reasonable. Since Erlang's variables are bind once, there's
+no possibility of pointing forwards in time.
+
+And the algorithm does have some advantages.
+
+** Slide: Advantages
+
+1. Simplicity: It's extremely simple and avoids the problem of
+   "recursive marking." In mark sweep, each object you mark is
+   recursively marked. This is part of the 2 phase process. You have
+   to mark everything before you can sweep it. The recursive marking
+   is problematic though. If you're collecting garbage, do you really
+   have enough memory to use up a bunch of stack space?
+
+2. Ease of Extension: We've shown how by limiting the collection, we
+   can get properties of both an incremental and a generational
+   collector.
+
+3. Objects can be reused more quickly in Mark sweep since we don't
+   have to do 2 passes, and can do less than a full pass to reclaim 
+   dead objects.
+
+** Slide: But, 303 See Other.
+
+** Slide: Image Credits
+
+* "Spread the Gnus": https://secure.flickr.com/photos/puliarfanita/6026330732/in/photolist-abwwb1-6ApYxu-jEp8pV-c2eXqw-81LPL-wjjkT-4JZqBQ-6o3mJG-9YRiUm-3t4km-Ahtjx-9YNqoc-pZvNx-7mis1-czaJeS-czaHES-aUfdNe-6UaPSX-693pNg-fb84D-3QZoJ5-5gm73-5ugFB8-73u9hq-aB4ivt-PUDs-a1xmWo-c2h9qG-73riU-7dUFU7-f9n7iJ-Kmwk6-4H614e-6gmUKL-5QUPxX-mXKrB-mG5w-aZ9cUz-LV31W-acH9dy-JYgvQ-JYfUN-ER1PN-evG5H-8UAthy-PkV7c-7JFKr1-4vUig4-7afj6F-8V1EY6
+* "Billy Mays": https://upload.wikimedia.org/wikipedia/commons/f/fa/Billy_Mays_Portrait_Cropped.jpg

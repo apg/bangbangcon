@@ -13,7 +13,7 @@ typedef enum {
 
 struct VM {
   object_t *stack[STACK_SIZE];
-  object_t *current;
+  object_t *current, *first;
   int pt;
 
   int count;
@@ -55,5 +55,7 @@ void vm_nl(VM_t *v);
 void vm_print(VM_t *v);
 
 void vm_gc(VM_t *v);
+
+long nanotime();
 
 #endif

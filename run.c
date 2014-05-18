@@ -1,3 +1,4 @@
+#include <getopt.h>
 #include <stdio.h>
 
 #include "vm.h"
@@ -5,23 +6,28 @@
 int
 main(int argc, char **argv)
 {
-  int i;
+  int i, j;
+  long nstart;
   VM_t vm, *v;
   v = &vm;
 
   vm_init(v);
 
+  nstart = nanotime();
+
   vm_null(v);
-  vm_num(v, 1);
-  vm_num(v, 2);
+  for (i = 0; i < 1000; i++) {
+    for (j = 0; j < 101; j++) {
+      vm_num(v, (double) j);
+    }
 
-  printf("pt: %d\n", v->pt);
+    for (j = 0; j < 100; j++) {
+      vm_cons(v);
+    }
+
+    vm_pop(v);
+  }
   
-  vm_add(v);
-
-  printf("pt: %d\n", v->pt);
-
-  vm_cons(v);
   vm_print(v);
   vm_nl(v);
 
@@ -29,5 +35,6 @@ main(int argc, char **argv)
     vm_num(v, i);
   }
 
+  printf("timer#program.ellapsed=%ldns\n", nanotime()- nstart);
   return 0;
 }
